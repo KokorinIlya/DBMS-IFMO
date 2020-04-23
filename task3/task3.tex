@@ -1,0 +1,221 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{listings}
+\lstset{
+	language=Octave,
+	frame=single,
+	xleftmargin=.1\textwidth, xrightmargin=.1\textwidth
+}
+\usepackage{graphicx}
+\usepackage{mathtools, nccmath}
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[russian]{babel}
+\usepackage{amsmath}
+\usepackage[left=2cm,right=2cm,top=2cm,bottom=2.1cm,bindingoffset=0cm]{geometry}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+
+\graphicspath{{/pic}}
+
+\title{Задание № 3}
+\author{Кокорин Илья, M3439}
+
+\begin{document}
+	\maketitle
+	
+	\section{Описание задания}
+	
+	Дано отношение с атрибутами StudentId, StudentName, GroupId, GroupName, CourseId, CourseName, LecturerId, LecturerName, Mark.
+	
+	\begin{enumerate}
+		\item Найдите функциональные зависимости в данном отношении.
+		\item Найдите все ключи данного отношения.
+		\item Найдите неприводимое множество функциональных зависимостей для данного отношения.
+	\end{enumerate}
+	
+	\section{Функциональные зависимости}
+	
+	В данном отношении есть следующие функциональные зависимости:
+	
+	\begin{enumerate}
+		\item $StudentId \rightarrow StudentName, GroupId$ (студент имеет имя и обучается в группе)
+		
+		\item $GroupId \rightarrow GroupName$ (группа имеет название)
+		
+		\item $CourseId \rightarrow CourseName$ (предмет имеет название)
+		
+		\item $LecturerId \rightarrow LecturerName$ (лектор имеет имя)
+		
+		\item $GroupId, CourseId \rightarrow LecturerId$ (в группе предмет ведёт определённый человек, в 
+		разных группах предмет могут вести разные люди)
+		
+		\item $StudentId, CourseId \rightarrow Mark$ (студент имеет оценку по предмету)
+	\end{enumerate}
+
+	\section{Ключи отношения}
+	
+	Будет находить ключ методом минимизации надключа.
+	
+	Очевидно, $(StudentId, StudentName, GroupId, GroupName, CourseId, CourseName, LecturerId, LecturerName, Mark)$ - надключ.
+	
+	Но не ключ, потому что $StudentId \rightarrow StudentName$ (По правилу расщепления ФЗ $StudentId \rightarrow StudentName, GroupId$ на $StudentId \rightarrow StudentName$ и $StudentId \rightarrow GroupId$). Следовательно, не выполнено требование минимальности по включению
+	
+	Убираем StudentName из надключа. 
+	
+	$(StudentId, GroupId, GroupName, CourseId, CourseName, LecturerId, LecturerName, Mark)$ - надключ.
+	
+	Аналогично поступаем с GroupName, CourseName, LecturerName (учитываем функциональные зависимости $GroupId \rightarrow GroupName, CourseId \rightarrow CourseName, LecturerId \rightarrow LecturerName$ )
+	
+	$(StudentId, GroupId, CourseId, LecturerId, Mark)$ - надключ.
+	
+	Но не ключ, так как $StudentId, CourseId \rightarrow Mark$. Следовательно, не выполнено требование минимальности по включению
+	
+	Убираем Mark из надключа. 
+	
+	$(StudentId, GroupId, CourseId, LecturerId)$ - надключ.
+	
+	Но не ключ, так как $GroupId, CourseId \rightarrow LecturerId$. Следовательно, не выполнено требование минимальности по включению.
+	
+	Убираем LecturerId из надключа. 
+	
+	$(StudentId, GroupId, CourseId)$ - надключ.
+	
+	Но не ключ, так как $StudentId \rightarrow GroupId$(По правилу расщепления ФЗ $StudentId \rightarrow StudentName, GroupId$ на $StudentId \rightarrow StudentName$ и $StudentId \rightarrow GroupId$). Следовательно, не выполнено требование минимальности по включению.
+	
+	Убираем GroupId из надключа. 
+	
+	$(StudentId, CourseId)$ - надключ.
+	
+	И в то же время ключ, так как отсутствует как функциональная зависимость $StudentId \rightarrow CourseId$, так и функциональная зависимость $CourseId \rightarrow StudentId$.
+	
+	Заметим, что любой другой порядок минимизации надключа привёл к точно такому же единственному ключу отношения.
+	
+	Ответ: $\{(StudentId, CourseId)\}$
+	
+	\section{Неприводимое множество}
+	
+	\subsection{Расщепление правых частей}
+	
+	Для начала расщепляем правые части всех ФЗ по правилу расщепления
+	
+	\begin{align*}
+	S &=\\ 
+	&\{ \\
+	&StudentId \rightarrow StudentName,\\
+	&StudentId \rightarrow GroupId,\\
+	& GroupId \rightarrow GroupName,\\
+	&CourseId \rightarrow CourseName,\\
+	&LecturerId \rightarrow LecturerName,\\
+	&GroupId, CourseId \rightarrow LecturerId,\\ 
+	&StudentId, CourseId \rightarrow Mark\\
+	&\}
+	\end{align*}
+	
+	\subsection{Минимизация левых частей}
+	
+	Можно минимизировать левую часть в следующих ФЗ: $\{GroupId, CourseId \rightarrow LecturerId; StudentId, CourseId \rightarrow Mark\}$
+	
+	\begin{enumerate}
+		\item
+		Попробуем минимизировать левую часть $GroupId, CourseId \rightarrow LecturerId$
+		
+		\begin{enumerate}
+			\item
+			Попробуем исключить GroupId.
+			
+			$S' = S \setminus \{GroupId, CourseId \rightarrow LecturerId\} \cup \{CourseId \rightarrow LecturerId\} $
+			
+			Заметим, что $CourseId^+_S = \{CourseName\}$
+			
+			$CourseId^+_{S'} =  \{CourseName, LecturerId\}$
+			
+			То есть $CourseId^+_S \neq CourseId^+_{S'} $, то есть нельзя исключать GroupId.
+			
+			\item
+			Попробуем исключить CourseId.
+			
+			$S' = S \setminus \{CourseId, GroupId \rightarrow LecturerId\} \cup \{GroupId \rightarrow LecturerId\} $
+			
+			Заметим, что $GroupId^+_S = \{GroupName\}$
+			
+			$GroupId^+_{S'} =  \{GroupName, LecturerId\}$
+			
+			То есть $GroupId^+_S \neq GroupId^+_{S'} $, то есть нельзя исключать CourseId.
+		\end{enumerate}
+	
+		\item 
+		Попробуем минимизировать левую часть $StudentId, CourseId \rightarrow Mark$
+		
+		\begin{enumerate}
+			\item
+			Попробуем исключить StudentId.
+			
+			$S' = S \setminus \{StudentId, CourseId \rightarrow Mark\} \cup \{CourseId \rightarrow Mark\} $
+			
+			Заметим, что $CourseId^+_S = \{CourseName\}$
+			
+			$CourseId^+_{S'} =  \{CourseName, Mark\}$
+			
+			То есть $CourseId^+_S \neq CourseId^+_{S'} $, то есть нельзя исключать StudentId.
+			
+			\item
+			Попробуем исключить CourseId.
+			
+			$S' = S \setminus \{StudentId, CourseId \rightarrow Mark\} \cup \{StudentId \rightarrow Mark\} $
+			
+			Заметим, что $StudentId^+_S = \{StudentName, GroupId, GroupName\}$
+			
+			$StudentId^+_{S'} =  \{StudentName, GroupId, GroupName, Mark\}$
+			
+			То есть $StudentId^+_S \neq StudentId^+_{S'} $, то есть нельзя исключать CourseId.
+		\end{enumerate}
+	\end{enumerate}
+
+	Значит, левая часть каждой ФЗ из S минимальна по включению.
+
+	\subsection{Минимизация множества S}
+	
+	Будем по очереди пытаться исключить каждую ФЗ из множества S
+	
+	\begin{enumerate}
+		\item 
+		$S' = S \setminus \{StudentId \rightarrow StudentName\}$
+		
+		$StudentName \not\in StudentId^+_{S'} = \{GroupId, GroupName\}$
+		
+		\item 
+		$S' = S \setminus \{StudentId \rightarrow GroupId\}$
+		
+		$GroupId \not\in StudentId^+_{S'} = \{StudentName\}$
+		
+		\item 
+		$S' = S \setminus \{GroupId \rightarrow GroupName\}$
+		
+		$GroupName \not\in GroupId^+_{S'} = \emptyset$
+		
+		\item 
+		$S' = S \setminus \{CourseId \rightarrow CourseName\}$
+		
+		$CourseName \not\in CourseId^+_{S'} = \emptyset$
+		
+		\item 
+		$S' = S \setminus \{LecturerId \rightarrow LecturerName\}$
+		
+		$LecturerName \not\in LecturerId ^+_{S'} = \emptyset$
+		
+		\item 
+		$S' = S \setminus \{GroupId, CourseId \rightarrow LecturerId\}$
+		
+		$LecturerId \not\in \{GroupId, CourseId\}^+_{S'} = \{GroupName, CourseName\}$
+		
+		\item 
+		$S' = S \setminus \{StudentId, CourseId \rightarrow Mark\}$
+		
+		$Mark \not\in \{StudentId, CourseId\}^+_{S'} = \{StudentName, GroupId, GroupName, CourseName, LecturerId, LecturerName\}$
+	\end{enumerate}
+
+	Так как никакой элемент из S исключить нельзя, S минимален по включению.
+	
+	Значит, S -неприводимое множество ФЗ.
+\end{document}

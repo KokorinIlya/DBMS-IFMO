@@ -1,0 +1,615 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{listings}
+\lstset{
+	language=Octave,
+	frame=single,
+	xleftmargin=.1\textwidth, xrightmargin=.1\textwidth
+}
+\usepackage{graphicx}
+\usepackage{mathtools, nccmath}
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[russian]{babel}
+\usepackage{amsmath}
+\usepackage[left=2cm,right=2cm,top=2cm,bottom=2.1cm,bindingoffset=0cm]{geometry}
+\usepackage{amsfonts}
+\usepackage{minted}
+\usepackage{amssymb}
+
+\graphicspath{{/pic}}
+\DeclarePairedDelimiter{\nint}\lfloor\rfloor
+\DeclarePairedDelimiter{\hint}\lceil\rceil
+
+\def\ojoin{\setbox0=\hbox{$\bowtie$}%
+  \rule[-.02ex]{.25em}{.4pt}\llap{\rule[\ht0]{.25em}{.4pt}}}
+\def\leftouterjoin{\mathbin{\ojoin\mkern-5.8mu\bowtie}}
+\def\rightouterjoin{\mathbin{\bowtie\mkern-5.8mu\ojoin}}
+\def\fullouterjoin{\mathbin{\ojoin\mkern-5.8mu\bowtie\mkern-5.8mu\ojoin}}
+
+
+\title{Домашнее задание № 5}
+\author{Кокорин Илья, M3439}
+
+\begin{document}
+	\maketitle
+	
+	\section{Информацию о студентах, с заданной оценкой по предмету «Базы данных»}
+	
+	Считаем заданной оценкой диапазон оценок.
+	
+	$\pi_{StudentId, StudentName, GroupName} (\sigma_{CourseName = \text{'Базы данных'} \wedge Mark \geq ? \wedge Mark \leq ?} (Students \bowtie Marks \bowtie Courses \bowtie Groups))$
+	
+	
+\begin{minted}[frame=single]{sql}
+SELECT DISTINCT Students.StudentId, Students.StudentName, Groups.GroupName
+FROM Students
+       NATURAL JOIN Marks
+       NATURAL JOIN Courses
+       NATURAL JOIN Groups
+WHERE Courses.CourseName = 'Базы данных'
+  AND Marks.Mark <= ? AND Marks.Mark >= ?;
+\end{minted}
+
+	\section{Информацию о студентах не имеющих оценки по предмету «Базы данных» среди всех студентов}
+	
+	\begin{align*}
+	\pi_{StudentId, StudentName, GroupName}((\\
+		\pi_{StudentId, StudentName, GroupId}(Students) && - \\ \pi_{StudentId, StudentName, GroupId}(\sigma_{CourseName = \text{'Базы данных'}}(Students \bowtie Marks \bowtie Courses))) \bowtie Groups\\
+	)
+	\end{align*}
+	
+\begin{minted}[frame=single]{sql}
+WITH CorrectCourses AS (
+  SELECT Courses.CourseId
+  FROM Courses
+  WHERE Courses.CourseName = 'Базы данных'
+)
+SELECT DISTINCT CorrectStudents.StudentId,
+                CorrectStudents.StudentName,
+                Groups.GroupName
+FROM (SELECT DISTINCT Students.StudentId,
+                      Students.StudentName,
+                      Students.GroupId
+      FROM Students EXCEPT ALL (SELECT DISTINCT Students.StudentId,
+                                                Students.StudentName,
+                                                Students.GroupId
+                                FROM Students
+                                       NATURAL JOIN Marks
+                                       NATURAL JOIN CorrectCourses)) AS CorrectStudents
+       NATURAL JOIN Groups;
+\end{minted}
+
+	\section{Информацию о студентах не имеющих оценки по предмету «Базы данных» среди студентов, у которых есть этот предмет}
+	
+	\begin{align*}
+	\pi_{StudentId, StudentName, GroupName}((\\
+		\pi_{StudentId, StudentName, GroupId}(\sigma_{CourseName = \text{'Базы данных'}}(Students \bowtie Plan \bowtie Courses)) && - \\ \pi_{StudentId, StudentName, GroupId}(\sigma_{CourseName = \text{'Базы данных'}}(Students \bowtie Marks \bowtie Courses))\\
+	) \bowtie Groups)
+	\end{align*}
+	
+\begin{minted}[frame=single]{sql}
+WITH CorrectCourses AS (
+  SELECT Courses.CourseId
+  FROM Courses
+  WHERE Courses.CourseName = 'Базы данных'
+)
+SELECT DISTINCT CorrectStudents.StudentId,
+                CorrectStudents.StudentName,
+                Groups.GroupName
+FROM (SELECT DISTINCT Students.StudentId,
+                      Students.StudentName,
+                      Students.GroupId
+      FROM Students
+             NATURAL JOIN Plan
+             NATURAL JOIN CorrectCourses
+        EXCEPT ALL (SELECT DISTINCT Students.StudentId,
+                                    Students.StudentName,
+                                    Students.GroupId
+                    FROM Students
+                           NATURAL JOIN Marks
+                           NATURAL JOIN CorrectCourses)) AS CorrectStudents
+       NATURAL JOIN Groups;
+\end{minted}
+
+\section{Информацию о студентах, имеющих хотя бы одну оценку у заданного лектора}
+
+	\begin{align*}
+	\pi_{StudentId, StudentName, GroupName}(\sigma_{LecturerId = ?}(Students \bowtie Groups \bowtie Marks \bowtie Plan))
+	\end{align*}
+	
+\begin{minted}[frame=single]{sql}
+SELECT DISTINCT Students.StudentId,
+                Students.StudentName,
+                Groups.GroupName
+FROM Students
+       NATURAL JOIN Groups
+       NATURAL JOIN Marks
+       NATURAL JOIN Plan
+WHERE Plan.LecturerId = ?;
+\end{minted}
+
+	\section{Идентификаторы студентов, не имеющих ни одной оценки у заданного лектора}
+	
+	\begin{align*}
+	\pi_{StudentId}(Students) &&- &&\pi_{StudentId}(\sigma_{LecturerId=?}(Students \bowtie Marks \bowtie Plan))
+	\end{align*}
+	
+\begin{minted}[frame=single]{sql}
+SELECT DISTINCT Students.StudentId
+FROM Students EXCEPT ALL (
+  SELECT DISTINCT Students.StudentId
+  FROM Students
+         NATURAL JOIN Marks
+         NATURAL JOIN Plan
+  WHERE Plan.LecturerId = ?
+);
+\end{minted}
+
+\section{Студентов, имеющих оценки по всем предметам заданного лектора}
+
+Будем требовать, чтобы у студента были оценки по всем предметам, которые заданный лектор когда-либо вёл в какой-либо группе.
+Также считаем, что если заданный лектор вообще не ведёт предметов, то оценки по всем его предметам есть у всех студентов.
+
+	\begin{align*}
+	\pi_{StudentId, StudentName, GroupName, CourseId, LecturerId}(Students \bowtie Groups \leftouterjoin Marks \leftouterjoin Plan) && \div \\ \pi_{LecturerId, CourseId}(\sigma_{LecturerId = ?}(Plan) )
+	\end{align*}
+	
+\begin{minted}[frame=single]{sql}
+WITH StudentsWithCourses AS (
+  SELECT DISTINCT Students.StudentId,
+                  Students.StudentName,
+                  Groups.GroupName,
+                  Marks.CourseId,
+                  Plan.Lecturerid
+  FROM Students
+         NATURAL JOIN Groups
+         LEFT OUTER JOIN Marks USING (StudentId)
+         LEFT OUTER JOIN Plan USING (GroupId, CourseId)
+),
+     ProperLecturerCourses AS (
+       SELECT DISTINCT Plan.CourseId,
+                       Plan.LecturerId
+       FROM Plan
+       WHERE LecturerId = ?
+     )
+SELECT DISTINCT StudentsWithCourses.StudentId,
+                StudentsWithCourses.StudentName,
+                StudentsWithCourses.GroupName
+FROM StudentsWithCourses EXCEPT ALL (
+  SELECT DISTINCT StudentsWithNotAllCourses.StudentId,
+                  StudentsWithNotAllCourses.StudentName,
+                  StudentsWithNotAllCourses.GroupName
+  FROM (
+         (SELECT DISTINCT StudentsWithCourses.StudentId,
+                          StudentsWithCourses.StudentName,
+                          StudentsWithCourses.GroupName,
+                          ProperLecturerCourses.CourseId,
+                          ProperLecturerCourses.LecturerId
+          FROM StudentsWithCourses
+                 CROSS JOIN ProperLecturerCourses)
+         EXCEPT
+         ALL
+         (SELECT DISTINCT StudentsWithCourses.StudentId,
+                          StudentsWithCourses.StudentName,
+                          StudentsWithCourses.GroupName,
+                          StudentsWithCourses.CourseId,
+                          StudentsWithCourses.Lecturerid
+          FROM StudentsWithCourses)
+       ) AS StudentsWithNotAllCourses
+);
+\end{minted}
+
+	\section{Для каждого студента имя и названия предметов, которые он должен посещать}
+		Студент должен посещать все предметы, которые есть в учебном плане его группы, за исключением тех, по которым он уже получил оценку.
+		\begin{align*}
+		\pi_{Studentid, StudentName, CourseName} (\\
+		\pi_{Studentid, StudentName, CourseId, CourseName}(Students \bowtie Plan \bowtie Courses) && -\\
+		\pi_{Studentid, StudentName, CourseId, CourseName}(Students \bowtie Marks \bowtie Courses)\\
+		)
+		\end{align*}
+
+\begin{minted}[frame=single]{sql}
+SELECT DISTINCT NotMarkedCourses.StudentId,
+                NotMarkedCourses.StudentName,
+                NotMarkedCourses.CourseName
+FROM (
+       (SELECT DISTINCT Students.StudentId,
+                        Students.StudentName,
+                        Courses.CourseId,
+                        Courses.CourseName
+        FROM Students
+               NATURAL JOIN Plan
+               NATURAL JOIN Courses)
+       EXCEPT
+       ALL
+       (
+         SELECT DISTINCT Students.StudentId,
+                         Students.StudentName,
+                         Courses.CourseId,
+                         Courses.CourseName
+         FROM Students
+                NATURAL JOIN Marks
+                NATURAL JOIN Courses
+       )
+     ) AS NotMarkedCourses;
+\end{minted}
+
+	\section{По лектору всех студентов, у которых он хоть что-нибудь преподавал}
+	
+	Считаем, что лектор преподавал у студента, если студент учится в группе, в которой преподаватель ведёт хотя бы один предмет.
+	
+	\subsection{Для каждого лектора}
+	
+	\begin{align*}
+	\pi_{LecturerId, LecturerName, StudentId, StudentName, GroupName}(Plan \bowtie Lecturers \bowtie Students \bowtie Groups)
+	\end{align*}
+	
+\begin{minted}[frame=single]{sql}
+SELECT DISTINCT Lecturers.LecturerId,
+                Lecturers.LecturerName,
+                Students.StudentId,
+                Students.StudentName,
+                Groups.GroupName
+FROM Plan
+       NATURAL JOIN Lecturers
+       NATURAL JOIN Students
+       NATURAL JOIN Groups;
+\end{minted}
+
+	\subsection{Для заданного лектора}
+	
+	\begin{align*}
+	\pi_{LecturerId, LecturerName, StudentId, StudentName, GroupName}(\sigma_{LecturerId = ?}(Plan \bowtie Students \bowtie Groups) \bowtie Lecturers)
+	\end{align*}
+	
+\begin{minted}[frame=single]{sql}
+SELECT DISTINCT Lecturers.LecturerId,
+                Lecturers.LecturerName,
+                LecturerStudents.StudentId,
+                LecturerStudents.StudentName,
+                LecturerStudents.GroupName
+FROM (SELECT Students.StudentId,
+             Students.StudentName,
+             Groups.GroupName,
+             Plan.LecturerId
+      FROM Plan
+             NATURAL JOIN Students
+             NATURAL JOIN Groups
+      WHERE Plan.LecturerId = ?) AS LecturerStudents
+       NATURAL JOIN Lecturers;
+\end{minted}
+
+	\section{Пары студентов, такие, что все сданные первым студентом предметы сдал и второй студент}
+
+	Заметим, что если первый студент не сдал ни одного предмета, то в пару ему можно поставить любого студента. (назовём такие пары тривиальными, остальные - нетривиальными)
+	
+	Также выкинем такие пары, которые составлены из одного и того же студента.
+	
+	\begin{align*}
+	StudentsWithPassedCourses = \pi_{StudentId, CourseId}(\sigma_{Mark >= 60}(Students \bowtie Marks))
+	\end{align*}
+	
+	\begin{align*}
+	NonTrivialPairs = \rho_{Studentid = StudentId2}(StudentsWithPassedCourses) && \divideontimes \\
+	\rho_{Studentid = StudentId1}(StudentsWithPassedCourses)
+	\end{align*}
+	
+	\begin{align*}
+	TrivialPairs = \rho_{StudentId = StudentId1}(\pi_{StudentId}(Students) - \pi_{StudentId}(Students \bowtie Marks)) \bigtimes\\
+	\rho_{StudentId = StudentId2}(\pi_{StudentId}(Students))
+	\end{align*}
+	
+	\begin{align*}
+		\rho_{StudentName = StudentName2}(( \\
+		\rho_{StudentName = StudentName1}((\sigma_{StudentId1 \neq StudentId2}(NonTrivialPairs \bigcup TrivialPairs)) \bowtie_{StudentId1 = StudentId} Students)\\
+	) \bowtie_{StudentId2 = StudentId} Students)
+	\end{align*}
+
+\begin{minted}[frame=single]{sql}
+WITH StudentsWithPassedCourses AS (
+  SELECT DISTINCT Students.StudentId, Marks.CourseId
+  FROM Students
+         NATURAL JOIN Marks
+  WHERE Marks.Mark >= 60
+),
+     StudentsWithPassedCourses1 AS (
+       SELECT DISTINCT StudentsWithPassedCourses.StudentId AS StudentId1,
+                       StudentsWithPassedCourses.CourseId
+       FROM StudentsWithPassedCourses
+     ),
+     StudentsWithPassedCourses2 AS (
+       SELECT DISTINCT StudentsWithPassedCourses.StudentId AS StudentId2,
+                       StudentsWithPassedCourses.CourseId
+       FROM StudentsWithPassedCourses
+     ),
+     Students1 AS (
+       SELECT DISTINCT StudentsWithPassedCourses1.StudentId1 FROM StudentsWithPassedCourses1
+     ),
+     Students2 AS (
+       SELECT DISTINCT StudentsWithPassedCourses2.StudentId2 FROM StudentsWithPassedCourses2
+     ),
+     AllStudentsPairs AS (
+       SELECT DISTINCT Students1.StudentId1,
+                       Students2.StudentId2
+       FROM Students1
+              CROSS JOIN Students2
+     ),
+     IncorrectPairs AS (
+       SELECT DISTINCT Pairs.StudentId1, Pairs.StudentId2
+       FROM ((SELECT DISTINCT Students2.StudentId2,
+                              StudentsWithPassedCourses1.StudentId1,
+                              StudentsWithPassedCourses1.CourseId
+              FROM Students2
+                     CROSS JOIN StudentsWithPassedCourses1)
+             EXCEPT
+             ALL
+             (SELECT DISTINCT StudentsWithPassedCourses2.StudentId2,
+                              StudentsWithPassedCourses1.StudentId1,
+                              StudentsWithPassedCourses1.CourseId
+              FROM StudentsWithPassedCourses2
+                     NATURAL JOIN StudentsWithPassedCourses1)
+            ) AS Pairs
+     ),
+     NonTrivialPairs AS (
+       SELECT DISTINCT Pairs.StudentId1, Pairs.Studentid2
+       FROM (SELECT DISTINCT AllStudentsPairs.StudentId1,
+                             AllStudentsPairs.StudentId2
+             FROM AllStudentsPairs EXCEPT ALL
+             SELECT DISTINCT IncorrectPairs.StudentId1,
+                             IncorrectPairs.StudentId2
+             FROM IncorrectPairs) AS Pairs),
+     AllStudents AS (
+       SELECT DISTINCT Students.StudentId
+       FROM Students
+     ),
+     StudentsWithoupPassedCourses AS (
+       SELECT DISTINCT Studs.StudentId
+       FROM (
+              (SELECT DISTINCT AllStudents.StudentId
+               FROM AllStudents)
+              EXCEPT
+              ALL
+              (
+                SELECT DISTINCT StudentsWithPassedCourses.StudentId
+                FROM StudentsWithPassedCourses
+              )
+            ) AS Studs
+     ),
+     TrivialPairs AS (
+       SELECT DISTINCT StudentsWithoupPassedCourses.StudentId AS StudentId1,
+                       Students.StudentId                     AS StudentId2
+       FROM StudentsWithoupPassedCourses
+              CROSS JOIN Students
+     ),
+     AllPairs AS (
+       SELECT DISTINCT Pairs.StudentId1,
+                       Pairs.StudentId2
+       FROM (
+                (SELECT StudentId1, StudentId2 FROM NonTrivialPairs)
+                UNION
+                DISTINCT
+                (
+                  SELECT StudentId1, StudentId2
+                  FROM TrivialPairs
+                )
+            ) AS Pairs
+       WHERE Pairs.StudentId1 <> Pairs.StudentId2
+     ),
+     WithNames1 AS (
+       SELECT DISTINCT AllPairs.StudentId1,
+                       AllPairs.StudentId2,
+                       Students.StudentName as StudentName1
+       FROM AllPairs
+              INNER JOIN Students ON Students.StudentId = AllPairs.StudentId1
+     )
+SELECT DISTINCT WithNames1.StudentId1,
+                WithNames1.StudentName1,
+                WithNames1.StudentId2,
+                Students.StudentName as StudentName2
+FROM WithNames1
+       INNER JOIN Students ON Students.StudentId = WithNames1.StudentId2;
+\end{minted}
+
+	\section{Такие группы и предметы, что все студенты группы сдали предмет}
+	
+	\begin{align*}
+	 \pi_{Groupid, GroupName, CourseId, CourseName}(( \\
+	 	 \pi_{CourseId, StudentId}(\sigma_{Mark >= 60} (Students \bowtie Marks)) && \divideontimes\\
+	 	 	 \pi_{StudentId, GroupId}(Students)\\
+	 	 ) \bowtie Groups \bowtie Courses
+	 )
+	\end{align*}
+
+\begin{minted}[frame=single]{sql}
+WITH StudentsWithPassedCourses AS (
+  SELECT DISTINCT Marks.CourseId,
+                  Students.StudentId
+  FROM Students
+         NATURAL JOIN Marks
+  WHERE Marks.Mark >= 60
+),
+     GroupWithStudents AS (
+       SELECT DISTINCT Students.StudentId,
+                       Students.GroupId
+       FROM Students
+     ),
+     AllCourses AS (
+       SELECT DISTINCT StudentsWithPassedCourses.CourseId
+       FROM StudentsWithPassedCourses
+     ),
+     AllGroups AS (
+       SELECT DISTINCT GroupWithStudents.GroupId
+       FROM GroupWithStudents
+     ),
+     AllGroupsWithSubjects AS (
+       SELECT DISTINCT AllCourses.CourseId,
+                       AllGroups.GroupId
+       FROM AllCourses
+              CROSS JOIN AllGroups
+     ),
+     tmp1 AS (
+       SELECT DISTINCT AllCourses.CourseId,
+                       GroupWithStudents.StudentId,
+                       GroupWithStudents.GroupId
+       FROM AllCourses
+              CROSS JOIN GroupWithStudents
+     ),
+     tmp2 AS (
+       SELECT DISTINCT StudentsWithPassedCourses.CourseId,
+                       GroupWithStudents.StudentId,
+                       GroupWithStudents.GroupId
+       FROM StudentsWithPassedCourses
+              NATURAL JOIN GroupWithStudents
+     ),
+     IncorrectPairs AS (
+       SELECT DISTINCT Res.CourseId,
+                       Res.GroupId
+       FROM (SELECT DISTINCT Setminus.CourseId,
+                             Setminus.StudentId,
+                             Setminus.GroupId
+             FROM (SELECT DISTINCT tmp1.CourseId,
+                                   tmp1.StudentId,
+                                   tmp1.GroupId
+                   FROM tmp1 EXCEPT ALL
+                   SELECT DISTINCT tmp2.CourseId,
+                                   tmp2.StudentId,
+                                   tmp2.GroupId
+                   FROM tmp2
+                  ) AS Setminus
+            ) AS Res
+     ),
+     CorrectPairs AS (
+       SELECT DISTINCT Result.CourseId,
+                       Result.GroupId
+       FROM (SELECT DISTINCT AllGroupsWithSubjects.CourseId,
+                             AllGroupsWithSubjects.GroupId
+             FROM AllGroupsWithSubjects EXCEPT ALL
+             SELECT DISTINCT IncorrectPairs.CourseId,
+                             IncorrectPairs.GroupId
+             FROM IncorrectPairs
+            ) AS Result
+     )
+SELECT DISTINCT CorrectPairs.CourseId,
+                Courses.CourseName,
+                Correctpairs.GroupId,
+                Groups.GroupName
+FROM CorrectPairs
+       NATURAL JOIN courses
+       NATURAL JOIN Groups;
+\end{minted}
+
+	\section{Средний балл студента по идентификатору}
+
+	\begin{align*}
+		 avg_{Mark, \emptyset}(\sigma_{StudentId = ?}(Students \bowtie Marks))
+	\end{align*}
+
+\begin{minted}[frame=single]{sql}
+SELECT DISTINCT avg(Marks.Mark)
+FROM Students
+       NATURAL JOIN Marks
+WHERE Students.StudentId = ?;
+\end{minted}
+
+	\section{Средний балл студента для всех студентов}
+	
+	\begin{align*}
+		avg_{Mark, \{StudentId, StudentName\}}(Students \bowtie Marks)
+	\end{align*}
+	
+\begin{minted}[frame=single]{sql}
+SELECT DISTINCT Students.StudentId,
+             Students.StudentName,
+             avg(Marks.Mark)
+FROM Students
+    NATURAL JOIN Marks
+GROUP BY (Students.StudentId, students.StudentName);
+\end{minted}
+	
+	\section{Средний балл средних баллов студентов каждой группы}
+	
+	\begin{align*}
+			avg_{Mark, \{GroupId, GroupName\}}(avg_{Mark, \{StudentId, GroupId, GroupName\}}(Students \bowtie Marks \bowtie Groups))
+	\end{align*}
+		
+\begin{minted}[frame=single]{sql}
+WITH AllMarks AS (
+SELECT DISTINCT Students.StudentId,
+            Groups.GroupId,
+            Groups.GroupName,
+            Marks.CourseId,
+            Marks.Mark
+FROM Students
+   NATURAL JOIN Groups
+   NATURAL JOIN Marks
+),
+AverageByStudents AS (
+ SELECT DISTINCT AllMarks.StudentId,
+                 AllMarks.GroupId,
+                 AllMarks.GroupName,
+                 avg(AllMarks.Mark) AS Mark
+ FROM AllMarks
+ GROUP BY (AllMarks.StudentId, AllMarks.Groupid, AllMarks.GroupName)
+)
+SELECT DISTINCT AverageByStudents.GroupId,
+          AverageByStudents.GroupName,
+          avg(AverageByStudents.Mark)
+FROM AverageByStudents
+GROUP BY (AverageByStudents.GroupId, AverageByStudents.GroupName);
+\end{minted}
+
+	\section{Для каждого студента число предметов, которые у него были, число сданных предметов и число несданных предметов}
+	
+	\begin{align*}
+	StudentsTotalCourses = \rho_{count = TotalCourses}(count_{*, \{StudentId, StudentName\}}(Students \bowtie Plans))
+	\end{align*}
+	
+	\begin{align*}
+		OnlyPassedCourses = \rho_{StudentId = MarkStudentId}(\pi_{Studentid, CourseId}(\sigma_{Mark >= 60}(Marks)))
+	\end{align*}
+	
+	\begin{align*}
+	StudentsPassedCourses = \rho_{CourseId = PassedCourses}(\\
+	count_{CourseId, \{StudentId, StudentName\}}(Students \leftouterjoin_{StudentId = MarkStudentId} OnlyPassedCourses)
+	)
+	\end{align*}
+	
+	\begin{align*}
+	\varepsilon_{NonPassed = TotalCourses - PassedCourses}(StudentsTotalCourses \bowtie StudentsPassedCourses)
+	\end{align*}
+	
+\begin{minted}[frame=single]{sql}
+WITH StudentsTotalCourses AS (
+  SELECT DISTINCT Students.StudentId,
+                  Students.StudentName,
+                  count(*) AS TotalCourses
+  FROM students
+         NATURAL JOIN Plan
+  GROUP BY (Students.StudentId, Students.StudentName)
+),
+     OnlyPassedCourses AS (
+       SELECT Marks.StudentId, Marks.CourseId
+       FROM Marks
+       WHERE Marks.Mark >= 60
+     ),
+     StudentsPassedCourses AS (
+       SELECT DISTINCT Students.StudentId,
+                       Students.StudentName,
+                       count(OnlyPassedCourses.CourseId) AS PassedCourses
+       FROM Students
+              LEFT OUTER JOIN OnlyPassedCourses
+                              ON OnlyPassedCourses.StudentId = Students.StudentId
+       GROUP BY (Students.StudentId, Students.StudentName)
+     )
+SELECT DISTINCT StudentsTotalCourses.StudentId,
+                StudentsTotalCourses.StudentName,
+                StudentsTotalCourses.TotalCourses,
+                StudentsPassedCourses.PassedCourses,
+                StudentsTotalCourses.TotalCourses - StudentsPassedCourses.PassedCourses
+                  AS NotPassedCoursed
+FROM StudentsTotalCourses
+       NATURAL JOIN StudentsPassedCourses;
+\end{minted}
+
+\end{document}

@@ -1,0 +1,378 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{listings}
+\lstset{
+	language=Octave,
+	frame=single,
+	xleftmargin=.1\textwidth, xrightmargin=.1\textwidth
+}
+\usepackage{graphicx}
+\usepackage{mathtools, nccmath}
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[russian]{babel}
+\usepackage{amsmath}
+\usepackage[left=2cm,right=2cm,top=2cm,bottom=2.1cm,bindingoffset=0cm]{geometry}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+
+\graphicspath{{/pic}}
+
+\title{Задание № 4}
+\author{Кокорин Илья, M3439}
+
+\begin{document}
+	\maketitle
+	
+	\section{Описание задания}
+	
+	Дано отношение с атрибутами StudentId, StudentName, GroupId, GroupName, CourseId, CourseName, LecturerId, LecturerName, Mark.
+	
+	\begin{enumerate}
+		\item Инкрементально приведите данное отношение в 5 нормальную форму.
+		\item Постройте соответствующую модель сущность-связь.
+		\item Постройте соответствующую физическую модель.
+		\item Реализуйте SQL-скрипты, создающие схему базы данных.
+		\item Создайте базу данных по спроектированной модели.
+		\item Заполните базу тестовыми данными.
+	\end{enumerate}
+
+\section{Функциональные зависимости}
+
+В данном отношении есть следующие функциональные зависимости (обозначим за S множество всех ФЗ):
+
+	\begin{enumerate}
+		\item $StudentId \rightarrow StudentName, GroupId$ (студент имеет имя и обучается в группе)
+		
+		\item $GroupId \rightarrow GroupName$ (группа имеет название)
+		
+		\item $GroupName \rightarrow GroupId$ (название группы определяет её идентификатор)
+		
+		\item $CourseId \rightarrow CourseName$ (предмет имеет название)
+		
+		\item $LecturerId \rightarrow LecturerName$ (лектор имеет имя)
+		
+		\item $GroupId, CourseId \rightarrow LecturerId$ (в группе предмет ведёт определённый человек, в 
+		разных группах предмет могут вести разные люди)
+		
+		\item $StudentId, CourseId \rightarrow Mark$ (студент имеет оценку по предмету)
+	\end{enumerate}
+	
+	\section{Приведение в 1НФ}
+	
+	Заметим, что отношение уже находится в 1НФ, так как в нём нет повторяющихся групп, все атрибуты атомарны, а у отношения есть ключ ($\underline{StudentId}, \underline{CourseId}$)
+	
+	\section{Приведение в 2НФ}
+	
+	Заметим, что отношение не находится в 2НФ, так как у нас есть ФЗ $StudentId \rightarrow StudentName$
+	
+	То есть StudentName зависит только от части составного ключа.
+	
+	Декомпозируем по ней отношение на два:
+	
+	\begin{enumerate}
+		\item $\underline{StudentId}, StudentName$
+		\item $\underline{StudentId}, \underline{CourseId}, CourseName, GroupId, GroupName, LecturerId, LecturerName, Mark$
+	\end{enumerate}
+	
+	Заметим, что второе отношение не находится в 2НФ, так как у нас есть ФЗ $CourseId \rightarrow CourseName$
+	
+	То есть CourseName зависит только от части составного ключа.
+	
+	Декомпозируем по ней второе отношение:
+	
+	\begin{enumerate}
+		\item $\underline{StudentId}, StudentName$
+		\item $\underline{CourseId}, CourseName$
+		\item $\underline{StudentId}, \underline{CourseId}, GroupId, GroupName, LecturerId, LecturerName, Mark$
+	\end{enumerate}
+
+	Заметим, что  $GroupId \rightarrow GroupName$. Кроме того, $GroupId, CourseId \rightarrow GroupId$ (тривиальная ФЗ). Транзитивно комбинируя эти ФЗ, получаем нетривиальную ФЗ $GroupId, CourseId \rightarrow GroupName$.
+	
+	Кроме того, $GroupId, CourseId \rightarrow LecturerId$.
+	
+	Кроме того, $LecturerId \rightarrow LecturerName$
+	
+	Тогда, по правилу транзитивности, $GroupId, CourseId \rightarrow LecturerName$
+	
+	Пользуясь правилом слияния ФЗ, получаем $GroupId, CourseIds\rightarrow LecturerId,  LecturerName$ из 
+	
+	$GroupId, CourseIds \rightarrow LecturerId$ и $GroupId, CourseIds \rightarrow LecturerName$
+	
+	Тогда, пользуясь правилом слияния,  получаем $GroupId, CourseId \rightarrow LecturerId,  LecturerName, GroupName$ из $GroupId, CourseIds\rightarrow LecturerId,  LecturerName$  и $GroupId, CourseIds\rightarrow GroupName$ 
+	
+	Декомпозируем по этой ФЗ, пользуясь теоремой Хита
+	
+	\begin{enumerate}
+		\item $\underline{StudentId}, StudentName$
+		\item $\underline{CourseId}, CourseName$
+		\item $\underline{GroupId}, \underline{CourseId}, GroupName, LecturerId, LecturerName$
+		\item $\underline{StudentId}, \underline{CourseId}, GroupId, Mark$
+	\end{enumerate}
+
+	Заметим, что четвёртое отношение не находится во 2 НФ, так как существует ФЗ $StudentId \rightarrow GroupId$, то есть GroupId зависит только от части ключа.
+	
+	Декомпозируем по этой ФЗ.
+	
+	\begin{enumerate}
+		\item $\underline{StudentId}, StudentName$
+		\item $\underline{CourseId}, CourseName$
+		\item $\underline{GroupId}, \underline{CourseId}, GroupName, LecturerId, LecturerName$
+		\item $\underline{StudentId}, GroupId$
+		\item $\underline{StudentId}, \underline{CourseId}, Mark$
+	\end{enumerate}
+	
+	Заметим, что третье отношение не находится во второй ФЗ, так как есть ФЗ $GroupId \rightarrow GroupName$.
+	
+	Декомпозируем по ней.
+	
+	\begin{enumerate}
+		\item $\underline{StudentId}, StudentName$
+		\item $\underline{CourseId}, CourseName$
+		\item $\underline{GroupId}, \underline{CourseId}, LecturerId, LecturerName$
+		\item $\underline{GroupId}, \underline{\underline{GroupName}}$
+		\item $\underline{StudentId}, GroupId$
+		\item $\underline{StudentId}, \underline{CourseId}, Mark$
+	\end{enumerate}
+
+	Попробуем слить $\underline{StudentId}, StudentName$ и  $\underline{StudentId}, GroupId$ в одно отношение. Мы хотим так делать, потому что у каждого студента есть как имя, так и группа.
+	
+	\begin{enumerate}
+		\item $\underline{CourseId}, CourseName$
+		\item $\underline{GroupId}, \underline{CourseId}, LecturerId, LecturerName$
+		\item $\underline{GroupId}, \underline{\underline{GroupName}}$
+		\item $\underline{StudentId}, GroupId, StudentName$
+		\item $\underline{StudentId}, \underline{CourseId}, Mark$
+	\end{enumerate}
+
+	Докажем, что в отношениях 1, 3, 4 нет составных ключей.
+	
+	\subsection{Отношение 1}
+	
+	$CourseId \not\in \{CourseName\}_S^+$, поэтому CourseId должен входить в любой надключ, кроме того, он ялвяется ключом, поэтому составного ключа не существует.
+	
+	\subsection{Отношение 3}
+	
+	В отношении есть 2 атрибута, оба являются ключами, поэтому составного ключа не существует.
+	
+	\subsection{Отношение 4}
+	
+	$StudentId \not\in \{GroupName, StudentName\}_S^+$, поэтому StudentId должен входить в любой надключ, кроме того, он ялвяется ключом, поэтому составного ключа не существует.\newline\newline
+	
+	
+	
+
+	Заметим, что отношения 1, 3, 4 имеют только простые ключи, и поэтому находятся в 2 НФ. Докажем, что отношения 2, 5 находятся в 2  НФ.
+	
+	$LecturerId \not\in \{GroupId\}_S^+, LecturerName \not\in \{GroupId\}_S^+$
+	
+	$LecturerId \not\in \{CourseId\}_S^+, LecturerName \not\in \{CourseId\}_S^+$
+	
+	То есть ни один из неключевых атрибутов отношения 3 функционально не зависит от части ключа.
+	
+	$Mark \not\in \{StudentId\}_S^+, Mark \not\in \{StudentId\}_S^+$
+	
+	То есть ни один из неключевых атрибутов отношения 5 функционально не зависит от части ключа.
+	
+	То есть отношения 3 и 5 находятся в 2 НФ.
+	
+	\section{Приведение в 3 НФ}
+	
+	Заметим, что 2 отношение не находится в 3 НФ из-за ФЗ $GroupId, CourseId \rightarrow LecturerId$ и $LecturerId \rightarrow LecturerName$. То есть неключевой атрибут $LecturerName$ транзитивно зависит от ключа $\underline{GroupId}, \underline{CourseId}$
+	
+	Декомпозируем по ФЗ $LecturerId \rightarrow LecturerName$
+	
+	\begin{enumerate}
+		\item $\underline{CourseId}, CourseName$
+		\item $\underline{GroupId}, \underline{CourseId}, LecturerId$
+		\item $\underline{LecturerId}, LecturerName$
+		\item $\underline{GroupId}, \underline{\underline{GroupName}}$
+		\item $\underline{StudentId}, GroupId, StudentName$
+		\item $\underline{StudentId}, \underline{CourseId}, Mark$
+	\end{enumerate}
+
+	Очевидно, что любое отношение, содержащее всего два один неключевой атрибут A, находится в 3 НФ (так как для транзитивной зависимости неключевого атрибута A от ключа C должен найтись такой неключевой атрибут B, не совпадающий с A, что $C \rightarrow B, B \rightarrow A$). Поэтому 1, 2, 3, 6 отношения находятся в 3НФ. 
+	
+	4 отношение также находится в 3 НФ, так как в нём нет неключевых атрибутов.
+	
+	Проверим, что 5 отношение находится в 3 НФ. Докажем от противного. Чтобы неключевой атрибут (либо GroupId, либо StudentName) транзитивно зависел от ключа $\underline{StudentId}$, нужно чтобы выполнялось либо $GroupId \rightarrow StudentName$, либо $StudentName \rightarrow GroupId$, Заметим, что  $GroupId \not\in \{StudentName\}_S^+$ и $StudentName \not\in \{GroupId\}_S^+$, так что ни одна из требуемых ФЗ не выполняется, поэтому 5 отношение назходится в 3НФ.
+	
+	\section{Приведение в НФБК}
+	
+	Известно, что если отношение находится в 3НФ и не имеет пересекающихся ключей, то оно находится в НФБК.
+	
+	Так как все отношения из прошлого пункта находятся в 3НФ и не имеют пересекающихся ключей (докажем ниже), они находятся в НФБК.
+	
+	Докажем, что все отношения из прошлого пункта не имеют пересекающихся ключей.
+	
+	\subsection{$\underline{CourseId}, CourseName$}
+	
+	Так как $CourseId \not\in \{CourseName\}_S^+$, CourseId входит в любой надключ. Так как CourseId является ключом, то у отношения есть только один ключ. (а значит, нет и перекрывающихся ключей).
+	
+	\subsection{$\underline{GroupId}, \underline{CourseId}, LecturerId$}
+	
+	Так как $GroupId \not\in \{CourseId, LecturerId\}_S^+$ и $CourseId \not\in \{GroupId, LecturerId\}_S^+$, то GroupId, CourseId входят в любой надключ. Так как они являются ключом, то у отношеня единственный ключ (а значит, нет перекрывающихся ключей)
+	
+	\subsection{$\underline{LecturerId}, LecturerName$s}
+	Так как $LecturerId \not\in \{LecturerName\}_S^+$, LecturerId входит в любой надключ. Так как LecturerId является ключом, то у отношения есть только один ключ. (а значит, нет и перекрывающихся ключей).
+	
+	\subsection{ $\underline{GroupId}, \underline{\underline{GroupName}}$}
+	У отношения два атрибута, каждый из которых является ключом, значит, ключи не пересекаются.
+	
+	\subsection{ $\underline{StudentId}, GroupId, StudentName$}
+	
+	$StudentId \not\in \{GroupId, StudentName\}_S^+$, значит, StudentId должен входить в любой надключ. Так как он является ключом, то у отношения единственный ключ (а значит, нет перекрывающихся ключей)
+	
+	\subsection{ $\underline{StudentId}, \underline{CourseId}, Mark$}
+	
+	Так как $StudentId \not\in \{CourseId, Mark\}_S^+$ и $CourseId \not\in \{StudentId, Mark\}_S^+$, то CourseId, StudentId должны входить в любой наделюч. Так как они являются ключом, у отношения всего один ключ (а значит, нет и перекрывающихся ключей) 
+	
+	\section{Приведение в 4 НФ}
+	
+	\begin{enumerate}
+		\item $\underline{CourseId}, CourseName$
+		\item $\underline{GroupId}, \underline{CourseId}, LecturerId$
+		\item $\underline{LecturerId}, LecturerName$
+		\item $\underline{GroupId}, \underline{\underline{GroupName}}$
+		\item $\underline{StudentId}, GroupId, StudentName$
+		\item $\underline{StudentId}, \underline{CourseId}, Mark$
+	\end{enumerate}
+
+	Заметим, что в этих отношениях нет нетривиальных МЗ, которые не являются ФЗ, и эти отношения находятся в НФБК. Значит, они находятся в 4НФ.
+	
+	\section{Приведение в 5 НФ}
+	
+	Докажем, что у отношения 3 все ключи простые.
+	
+	$LecturerId \not\in \{LecturerName\}_S^+$, поэтому LecturerId должен входить в любой надключ, кроме того, он ялвяется ключом, поэтому составного ключа не существует. (значит, все ключи простые)
+	
+	Для отношений 1, 4, 5 аналогичный факт был доказан выше.
+	
+	Заметим, что у отношений 1, 3, 4, 5 только простые ключи (доказывали ранее), и они находятся в 3НФ. Следовательно, они находятся в 5НФ.
+	
+	Нужно доказать, что в 5 НФ находятся отношения 2 и 6.
+	
+	\subsection{$\underline{GroupId}, \underline{CourseId}, LecturerId$}
+
+	Найдём все нетривиальные зависимости соединений.
+	
+	Попытаемся разрезать только на 3 части, так как на 2 бесполезно, так как лучшая НФ в смысле разрезания на 2 части - 4 НФ, а на 4 части не хватит атрибутов.
+	
+	Очевидно, что имеет смысл включать в проекции только по два атрибута (три не имеет смысла, так как тогда получится тривиальная зависимость соединения).
+	
+	Так как операция соединения ассоциатитивна и коммутативна, у нас есть только один вариант разбиения на 3 проекции:
+	
+	\begin{enumerate}
+		\item $GroupId, CourseId$
+		\item $GroupId, LecturerId$
+		\item $CourseId, LecturerId$
+	\end{enumerate}
+
+	Очевидно, что их соединение не даст исходное отношение. 
+	
+	Представим такое отношение $R: GroupId, CourseId, LecturerId$:
+	
+	\begin{center}
+		\begin{tabular}{ccc}
+			GroupId: & CourseId,& LecturerId \\
+			1 & 1 & 1\\ 
+			1 & 2& 2 \\
+			2 & 1 & 2\\
+			2 & 2 & 1 \\
+		\end{tabular}
+	\end{center}
+
+	Тогда $\pi_{GroupId, CourseId} = $
+	
+		\begin{center}
+		\begin{tabular}{ccc}
+			GroupId & CourseId \\
+			1 & 1\\
+			1 & 2 \\
+			2 & 1 \\
+			2 & 2 \\
+		\end{tabular}
+	\end{center}
+
+	Тогда $\pi_{GroupId, LecturerId} = $
+	
+	\begin{center}
+		\begin{tabular}{ccc}
+			GroupId & LecturerId \\
+			1 & 1\\
+			1 & 2 \\
+			2 & 2\\
+			2 & 1\\
+		\end{tabular}
+	\end{center}
+
+	Тогда $\pi_{CourseId, LecturerId} = $
+	
+	\begin{center}
+		\begin{tabular}{ccc}
+			CourseId & LecturerId \\
+			1 & 1\\
+			2 & 2 \\
+			1 & 2\\
+			2 & 1\\
+		\end{tabular}
+	\end{center}
+
+
+		$\pi_{GroupId, CourseId} \bowtie \pi_{GroupId, LecturerId} =$
+		
+		\begin{center}
+			\begin{tabular}{ccc}
+				GroupId: & CourseId,& LecturerId \\
+				1 & 1 & 1\\
+				1 & 2& 1 \\
+				1 & 1 & 2\\
+				1 & 2 & 2\\
+				2 & 1 & 1\\
+				2 & 1 & 2\\
+				2 & 2 & 1\\
+				2 & 2 & 2\\
+			\end{tabular}
+		\end{center}
+	
+	$(\pi_{GroupId, CourseId} \bowtie \pi_{GroupId, LecturerId}) \bowtie  \pi_{CourseId, LecturerId} = $
+	
+	\begin{center}
+		\begin{tabular}{ccc}
+			GroupId: & CourseId,& LecturerId \\
+			1 & 1 & 1\\
+			1 & 2& 1 \\
+			1 & 1 & 2\\
+			1 & 2 & 2\\
+			2 & 1 & 1\\
+			2 & 1 & 2\\
+			2 & 2 & 1\\
+			2 & 2 & 2\\
+		\end{tabular}
+	\end{center}
+	
+	
+	То есть $\pi_{GroupId, CourseId} \bowtie \pi_{GroupId, LecturerId} \bowtie  \pi_{CourseId, LecturerId} \neq R$, так как в отношении появились лишние строки. То есть не сущесвует нетривиальных зависимостей соединений для отношения 2.
+	
+	\subsection{\underline{StudentId}, \underline{CourseId}, Mark}
+	
+	Доказывается аналогично предыдущему пункту, заменой GroupId на StudentId, CourseId на CourseId, lecturerId на Mark.
+	
+	Таким образом, в отношении 6 тоже нет нетривиальных ЗС.
+	
+	Тогда отношения 2 и 6 находятся в 5 НФ, и все отношения находятся в 5 НФ.
+	
+	\section{Итог}
+	
+	\begin{enumerate}
+		\item $\underline{CourseId}, CourseName$
+		\item $\underline{GroupId}, \underline{CourseId}, LecturerId$
+		\item $\underline{LecturerId}, LecturerName$
+		\item $\underline{GroupId}, \underline{\underline{GroupName}}$
+		\item $\underline{StudentId}, GroupId, StudentName$
+		\item $\underline{StudentId}, \underline{CourseId}, Mark$
+	\end{enumerate}
+
+	Находится в 5 НФ
+		
+\end{document}
